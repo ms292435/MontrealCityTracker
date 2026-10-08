@@ -6,7 +6,7 @@ Chaque décision suit le format Décision / Justification / Alternatives écart�
 
 ---
 
-## R1. Supprimer le fond de carte Apple avec react-native-maps (FR-001a, SC-005)
+## R1. Supprimer le fond de carte Apple avec react-native-maps (FR-001a, SC-005) — remplacée par R16
 
 **Décision** : utiliser `MapView` (fournisseur par défaut = Apple Maps sur iOS, seul fournisseur
 disponible dans Expo Go sur iPhone) recouvert d'un `UrlTile` dont `shouldReplaceMapContent={true}`
@@ -28,13 +28,16 @@ rapport de confidentialité iOS) pendant 5 min de navigation sur la carte.
   @shopify/react-native-skia, tous deux dans Expo Go) ; le reste du plan est inchangé, car le
   rendu est isolé dans `src/ui/map/`.
 
-**Résultat du spike (T011)** : _à compléter après le test sur iPhone (quickstart V7)._
+**Résultat du spike (T011), 2026-10-08 : ÉCHEC.** Sur iPhone, la tuile locale masque bien le
+fond, mais MapKit affiche toujours ses propres noms (quartiers, grandes routes) au-dessus,
+y compris hors de l'île : MapKit charge donc ses données. Arbitrage du propriétaire : **rendu
+maison** (R16). R1, R2 et R10 sont remplacées par R16.
 
 **Alternatives écartées** : Google Maps sur iOS (exige un build de développement, viole III) ;
 rendu maison d'emblée (plus de code — pan/zoom/tap à écrire — alors que l'option demandée peut
 suffire).
 
-## R2. Tuile vierge locale
+## R2. Tuile vierge locale (remplacée par R16)
 
 **Décision** : un PNG uni 256×256 dans `assets/blank-tile.png`, résolu au démarrage via
 `expo-asset` (`Asset.fromModule(...).downloadAsync()` → `localUri`) pour obtenir un `file://`.
@@ -166,7 +169,7 @@ grille et la zone visible, une seule technologie de stockage (déjà imposée).
 **Alternatives écartées** : JSON/GeoJSON embarqué (taille et temps de parsing) ; binaire maison
 (code de décodage à écrire et tester) ; deux bases + `ATTACH` (complexité sans bénéfice en v1).
 
-## R10. Affichage limité à la zone visible
+## R10. Affichage limité à la zone visible (remplacée par R16)
 
 **Décision** : à chaque `onRegionChangeComplete`, si `latitudeDelta ≤ 0.015` (≈ 1,7 km),
 requête des tronçons dont la boîte englobante intersecte la région élargie de 20 % ; plafond de
@@ -216,8 +219,8 @@ d'interface/E2E (hors principe V, coût élevé pour un projet solo en v1).
 - Les totaux par zone (points, longueur) sont calculés à l'exécution par SQL
   (`GROUP BY segment.quartier`), une fois au démarrage ; les points visités par zone par une
   jointure `visited_point → point → segment`, rejouée après chaque visite en vue par quartier.
-- Rendu : un `Polygon` react-native-maps par anneau extérieur (trous via `holes`), `tappable`,
-  couleur de remplissage selon le palier de FR-017 (fonction pure `quartierLevel`).
+- Rendu : voir R16 (chemins Skia remplis, teinte légère sous les rues), couleur selon le palier
+  de FR-017 (fonction pure `quartierLevel`).
 - Les zones dont le total de points est 0 ne sont pas affichées.
 
 **Justification** : aucun changement du schéma de `streets.db` ni de migration de la base déjà
@@ -228,6 +231,44 @@ visibles de faibles progressions (un arrondissement compte des milliers de point
 principe I ; ou moteur 3D natif, contraire au principe III) ; toutes les rues en tuiles
 d'images embarquées (plusieurs Mo et un moteur de rendu dans le script) ; échelle de couleur
 linéaire 0–100 % (tout resterait pâle pendant des mois).
+
+## R16. Rendu maison de la carte avec Skia (remplace R1, R2, R10)
+
+**Décision** : supprimer react-native-maps et dessiner la carte avec
+`@shopify/react-native-skia`, les gestes avec `react-native-gesture-handler` et la caméra en
+valeurs partagées `react-native-reanimated` (tous inclus dans Expo Go, SDK 57).
+- **Projection** : équirectangulaire locale centrée sur l'île (mètres, y vers le bas),
+  suffisante à l'échelle d'une ville (fonctions pures `src/domain/camera.ts`).
+- **Caméra** : centre (mètres) + échelle (pixels par mètre). Échelle minimale = île entière
+  visible (FR-019), maximale = 4 px/m ; centre borné à l'étendue de l'île. Le pincement zoome
+  autour du point pincé. Pas de rotation ni d'inclinaison.
+- **Géométrie** : tous les points chargés une fois au démarrage (requête brute, ~377 k lignes)
+  dans des tableaux typés projetés ; les rues neutres sont regroupées en chemins Skia par case
+  de ~1 km, pour que Skia ignore les cases hors écran ; les rues partielles et complétées forment
+  deux chemins reconstruits à chaque changement d'état (peu nombreux).
+- **Épaisseur** : constante en pixels (largeur monde = pixels ÷ échelle) ; filet d'un pixel pour
+  le réseau neutre quand on est très dézoomé, pour garder un rendu fluide (SC-008).
+- **Quartiers** (R15) : chemins Skia remplis, teinte légère selon le palier, visibles seulement
+  au-delà de l'échelle d'un quartier (`QUARTIER_VIEW_MAX_SCALE`), sous les rues.
+- **Toucher** : si la tolérance de 20 px vaut ≤ 50 m, recherche du point de rue le plus proche
+  via la grille (base) → tronçon ; sinon, quartier contenant le point (point-dans-polygone,
+  déplacé du script vers `src/domain/polygon.ts`, partagé).
+- **Échelle** (FR-020) : composant en bas à droite ; longueur « ronde » 1/2/5 × 10ⁿ m dont la
+  largeur tient dans 100 px (fonction pure `scaleBar`).
+- Les fonctions de caméra appelées pendant les gestes portent la directive `'worklet'`
+  (simple chaîne : elles restent pures et testées sous Jest).
+
+**Justification** : aucun MapKit ⇒ aucun nom étranger et aucune requête (FR-001a, SC-005,
+principe I) ; toutes les rues dessinées sur le GPU à tout zoom (FR-001, SC-008) ; reste dans
+Expo Go (principe III).
+
+**Alternatives écartées** : MapLibre avec tuiles vectorielles embarquées (code natif, build de
+développement, compte Apple Developer payant depuis Windows) ; garder MapKit avec contournements
+(noms non masquables de façon fiable, 53 k polylignes natives impossibles).
+
+**Risques** : temps de chargement de ~377 k points au démarrage (mesuré par V5/SC-003) ;
+fluidité du tracé de l'île entière (mesurée par V4/SC-008) — repli : simplifier le réseau
+neutre au dézoom.
 
 ## R14. Licences et attribution
 

@@ -47,13 +47,13 @@ Scanner le QR code avec l'appareil photo de l'iPhone.
 | V1 | Premier lancement, accepter la localisation | Carte sur fond uni, centrée sur la position ; rues neutres ; message d'attribution visible | US1-1, FR-001a |
 | V2 | Marcher ~100 m le long d'une rue | Le tronçon passe à « partielle » puis « complétée » en ≤ 5 s après le passage | US1-2/3/4, SC-001/002 |
 | V3 | Toucher un tronçon | Fiche : nom, %, état, longueur ; toucher ailleurs la masque | US1-5, FR-008a |
-| V4 | Dézoomer au-delà de ~1,7 km | Les rues laissent place aux arrondissements colorés selon la progression ; toucher une zone affiche nom, % et longueur ; marcher met la couleur à jour ; rezoomer fait revenir les rues ; la carte reste fluide | US4, FR-017, FR-018, R10, R15 |
+| V4 | Dézoomer au maximum, puis glisser loin de l'île ; toucher un arrondissement ; zoomer sur une rue | Le dézoom s'arrête sur l'île entière ; toutes les rues restent dessinées ; la carte revient vers l'île ; aucun nom ni élément étranger ; échelle en bas à droite mise à jour ; arrondissements teintés au dézoom, fiche nom/%/longueur au toucher ; gestes fluides | US4, FR-001, FR-001a, FR-017–FR-020, SC-008, R16 |
 | V5 | Fermer complètement l'app, mode avion, rouvrir | Même progression affichée en < 3 s | US2, SC-003 |
 | V6 | Effacer l'historique → Annuler, puis → Confirmer, puis relancer | Annuler : rien ne change ; Confirmer : toutes les rues neutres, y compris après relance | US3, SC-004 |
-| V7 | 5 min de navigation sur la carte avec proxy actif | 0 requête réseau émise par l'app (hors serveur de dev Expo) | SC-005, R1 |
+| V7 | 5 min de navigation sur la carte avec proxy actif | 0 requête réseau émise par l'app (hors serveur de dev Expo) | SC-005, R16 |
 | V8 | Refuser la permission de localisation | Carte consultable, message français expliquant comment l'activer ; aucun point visité | Edge cases, FR-015 |
 | V9 | Passer l'app en arrière-plan en marchant 2 min, revenir | Aucun point visité pendant l'arrière-plan ; le suivi reprend au retour | FR-014 |
 | V10 | 1 h de marche app ouverte | Batterie consommée ≤ 10 % | SC-006 |
 
-> V7 doit être exécuté **en premier** (spike, research.md R1) : son échec remet en cause le
-> choix de react-native-maps.
+> Le spike MapKit (ancien V7, research.md R1) a échoué : la carte est désormais dessinée par
+> l'app (R16). V7 sert à confirmer qu'elle n'émet aucune requête.

@@ -30,6 +30,17 @@
   villes liées, colorés selon le pourcentage parcouru de leurs rues ; les rues réapparaissent en
   zoomant. Cette progression par quartier est la seule « statistique » admise en v1.
 
+### Session 2026-10-08 (deuxième essai sur iPhone)
+
+- Q: Faut-il pouvoir dézoomer au-delà de l'île ? → A: Non ; le dézoom s'arrête quand l'île entière
+  est visible et la carte ne peut pas être déplacée loin de l'île.
+- Q: Où afficher l'échelle ? → A: En bas à droite, en permanence.
+- Q: Les rues doivent-elles rester visibles en dézoomant ? → A: Oui, toutes les rues, à tous les
+  niveaux de zoom (remplace la bascule rues → quartiers de la session précédente).
+- Q: Que faire des noms de quartiers, de routes, etc. affichés hors de l'île ? → A: Aucun nom ni
+  élément cartographique ne provenant pas de l'app ne doit apparaître.
+- Q: Que devient la coloration des quartiers ? → A: Une teinte légère sous les rues, au dézoom.
+
 **Input**: User description: "Une application mobile pour découvrir Montréal à pied. L'utilisateur voit une carte de la ville. Quand l'application est ouverte et qu'il se déplace, les rues qu'il parcourt se colorent de façon permanente sur la carte ; les rues jamais parcourues restent dans une couleur neutre. Chaque rue est représentée par une suite de points ; un point est visité quand l'utilisateur passe à moins de 25 mètres, et une rue est complétée quand au moins 90 % de ses points sont visités. Les rues partiellement parcourues sont visibles comme telles. L'historique est conservé entre les sessions et stocké uniquement sur l'appareil. L'utilisateur peut effacer tout son historique. Les autoroutes, tunnels et voies privées sont exclus. Hors périmètre pour cette version : suivi en arrière-plan, statistiques, badges, comptes, autres villes."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -49,8 +60,8 @@ qu'elle passe de l'état neutre à « partiellement parcourue », puis à « com
 **Acceptance Scenarios**:
 
 1. **Given** l'utilisateur n'a jamais rien parcouru, **When** il ouvre l'application,
-   **Then** la carte de Montréal s'affiche, centrée sur sa position, avec les rues éligibles de
-   la zone visible dans la couleur neutre.
+   **Then** la carte de Montréal s'affiche, centrée sur sa position, avec toutes les rues
+   éligibles dans la couleur neutre.
 2. **Given** l'application est ouverte, **When** l'utilisateur passe à moins de 25 m d'un point
    d'une rue, **Then** ce point est marqué visité et la rue apparaît comme partiellement
    parcourue.
@@ -104,32 +115,38 @@ toutes les rues sont neutres, y compris après redémarrage de l'application.
 
 ---
 
-### User Story 4 - Voir sa progression par quartier en dézoomant (Priority: P2)
+### User Story 4 - Embrasser toute l'île et sa progression par quartier (Priority: P2)
 
-Quand l'utilisateur dézoome au-delà de l'échelle d'un quartier, les rues laissent la place aux
-arrondissements et villes liées de l'île, colorés selon la part de leurs rues déjà parcourue.
-Il voit d'un coup d'œil les secteurs qu'il connaît et ceux qui restent à découvrir ; en zoomant,
-les rues réapparaissent.
+L'utilisateur peut dézoomer jusqu'à voir l'île entière, et pas au-delà. Toutes les rues restent
+dessinées à tous les niveaux de zoom, avec leurs états ; au dézoom, chaque arrondissement ou
+ville liée est légèrement teinté selon la part de ses rues déjà parcourue. Une échelle en bas à
+droite indique les distances. Rien d'autre n'apparaît sur la carte : ni noms, ni routes, ni
+éléments venant d'ailleurs que de l'app.
 
-**Why this priority**: sans cette vue, la carte dézoomée est vide et inutilisable (retour du
-premier essai sur iPhone) ; elle donne aussi la vue d'ensemble qui motive l'exploration.
+**Why this priority**: sans cette vue, la carte dézoomée est inutilisable (retours des essais
+sur iPhone) ; elle donne aussi la vue d'ensemble qui motive l'exploration.
 
-**Independent Test**: après avoir parcouru quelques rues d'un arrondissement, dézoomer : cet
-arrondissement est coloré, les autres restent neutres ; le toucher affiche son pourcentage.
+**Independent Test**: dézoomer au maximum : l'île entière est visible avec toutes ses rues, le
+dézoom s'arrête là, aucun nom n'apparaît, l'échelle se met à jour ; un arrondissement où des
+rues ont été parcourues est teinté et le toucher affiche son pourcentage.
 
 **Acceptance Scenarios**:
 
-1. **Given** la carte est zoomée sur un quartier, **When** l'utilisateur dézoome au-delà
-   d'environ 1,7 km de hauteur visible, **Then** les rues disparaissent et les arrondissements et
-   villes liées apparaissent, chacun coloré selon son pourcentage parcouru.
-2. **Given** un arrondissement sans aucun point visité, **When** la vue par quartier s'affiche,
-   **Then** il apparaît dans la couleur neutre.
-3. **Given** la vue par quartier, **When** l'utilisateur touche un arrondissement, **Then** il
-   voit son nom, son pourcentage parcouru (une décimale) et la longueur totale de ses rues.
-4. **Given** la vue par quartier, **When** l'utilisateur visite de nouveaux points, **Then** la
-   couleur et le pourcentage de son arrondissement se mettent à jour sans action de sa part.
-5. **Given** la vue par quartier, **When** l'utilisateur zoome à l'échelle d'un quartier,
-   **Then** les rues réapparaissent avec leurs états.
+1. **Given** la carte est zoomée sur une rue, **When** l'utilisateur dézoome au maximum,
+   **Then** le dézoom s'arrête quand l'île entière est visible, et toutes les rues restent
+   dessinées avec leurs états.
+2. **Given** la carte, **When** l'utilisateur la fait glisser loin de l'île, **Then** elle
+   s'arrête de façon à garder l'île à l'écran.
+3. **Given** un niveau de zoom quelconque, **When** l'utilisateur regarde la carte, **Then**
+   aucun nom, route ou élément cartographique extérieur à l'app n'est visible, et une échelle en
+   bas à droite indique une distance arrondie (ex. « 500 m », « 2 km »).
+4. **Given** la carte dézoomée au-delà de l'échelle d'un quartier, **When** elle s'affiche,
+   **Then** chaque arrondissement est légèrement teinté selon son pourcentage parcouru (neutre à
+   0 %), sous les rues.
+5. **Given** la carte dézoomée, **When** l'utilisateur touche un arrondissement, **Then** il voit
+   son nom, son pourcentage parcouru (une décimale) et la longueur totale de ses rues.
+6. **Given** la carte dézoomée, **When** l'utilisateur visite de nouveaux points, **Then** la
+   teinte et le pourcentage de son arrondissement se mettent à jour sans action de sa part.
 
 ---
 
@@ -163,12 +180,12 @@ arrondissement est coloré, les autres restent neutres ; le toucher affiche son 
 
 ### Functional Requirements
 
-- **FR-001**: Le système DOIT afficher une carte de Montréal présentant, à l'échelle d'un
-  quartier, les rues éligibles de la zone visible, et au-delà, la vue par quartier (FR-017),
-  ainsi que la position actuelle de l'utilisateur.
+- **FR-001**: Le système DOIT afficher une carte de l'île de Montréal présentant toutes les rues
+  éligibles, à tous les niveaux de zoom, ainsi que la position actuelle de l'utilisateur.
 - **FR-001a**: La carte NE DOIT PAS utiliser de fond de carte téléchargé : elle se compose
   uniquement des tracés des rues embarqués dans l'application, dessinés sur un fond uni, et de la
-  position de l'utilisateur. L'application DOIT fonctionner entièrement hors ligne et n'émettre
+  position de l'utilisateur ; aucun nom, étiquette ou élément cartographique ne provenant pas de
+  l'app ne DOIT apparaître. L'application DOIT fonctionner entièrement hors ligne et n'émettre
   aucune requête réseau liée à la carte.
 - **FR-002**: Le système DOIT représenter chaque rue éligible par une suite ordonnée de points
   répartis sur son tracé.
@@ -207,14 +224,19 @@ arrondissement est coloré, les autres restent neutres ; le toucher affiche son 
 - **FR-015**: Le système DOIT demander la permission de localisation avec une explication en
   français et rester utilisable en consultation si elle est refusée.
 - **FR-016**: Tous les textes de l'interface DOIVENT être en français.
-- **FR-017**: Au-delà de l'échelle d'un quartier, le système DOIT afficher les arrondissements et
-  villes liées de l'île comme des zones colorées selon le pourcentage de points visités parmi
-  tous les points de leurs rues, avec une couleur neutre à 0 % et une teinte de plus en plus
-  soutenue par paliers (> 0 %, ≥ 1 %, ≥ 5 %, ≥ 15 %, ≥ 40 %). Les zones sans aucune rue
-  éligible ne sont pas affichées. Les couleurs DOIVENT se mettre à jour à chaque nouvelle visite.
+- **FR-017**: Au-delà de l'échelle d'un quartier, le système DOIT teinter légèrement, sous les
+  rues, les arrondissements et villes liées de l'île selon le pourcentage de points visités parmi
+  tous les points de leurs rues, avec une teinte neutre à 0 % et de plus en plus soutenue par
+  paliers (> 0 %, ≥ 1 %, ≥ 5 %, ≥ 15 %, ≥ 40 %). Les zones sans aucune rue éligible ne sont pas
+  affichées. Les teintes DOIVENT se mettre à jour à chaque nouvelle visite.
 - **FR-018**: Lorsque l'utilisateur touche une zone de la vue par quartier, le système DOIT
   afficher son nom, son pourcentage parcouru (arrondi au dixième inférieur) et la longueur totale
   de ses rues éligibles.
+- **FR-019**: Le dézoom DOIT s'arrêter lorsque l'île entière est visible, et le déplacement de la
+  carte DOIT être borné de façon à garder l'île à l'écran.
+- **FR-020**: Le système DOIT afficher en permanence, en bas à droite, une échelle graphique
+  dont la longueur représente une distance arrondie (1, 2 ou 5 × 10ⁿ mètres), mise à jour
+  pendant le zoom.
 
 ### Key Entities
 
@@ -242,6 +264,8 @@ arrondissement est coloré, les autres restent neutres ; le toucher affiche son 
   batterie d'un téléphone récent.
 - **SC-007**: Un nouvel utilisateur voit sa première rue se colorer sans aucune aide ni
   configuration, dès ses premiers pas avec l'application ouverte.
+- **SC-008**: Glisser et zoomer restent fluides (aucune saccade perceptible) à tous les niveaux
+  de zoom, y compris avec l'île entière et toutes ses rues à l'écran.
 
 ## Assumptions
 
@@ -265,3 +289,4 @@ arrondissement est coloré, les autres restent neutres ; le toucher affiche son 
   FR-017), badges, comptes, autres villes, export/import de l'historique, carte 3D.
 - Les zones de quartier sont dessinées selon les limites officielles, qui peuvent déborder sur
   l'eau ou d'autres îles ; leur pourcentage ne porte que sur les rues de l'île de Montréal.
+- La carte n'est pas orientable (le nord reste en haut) ni inclinable en v1.

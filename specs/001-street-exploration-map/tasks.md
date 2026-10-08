@@ -55,7 +55,7 @@ passent par `src/strings/fr.ts` (principe VI) : aucune chaîne affichée codée 
 
 - [X] T009 Créer assets/blank-tile.png : PNG uni 256×256 de la couleur de fond de la carte (couleur neutre claire, ex. `#F2F0EA`), généré une fois (ex. par un petit script Node avec `node:zlib`, non conservé)
 - [X] T010 Créer src/ui/map/StreetsMap.tsx minimal : `MapView` centré sur 45.5017, -73.5673, `showsPointsOfInterests={false}`, `showsBuildings={false}`, `showsTraffic={false}`, `showsUserLocation={false}`, contenant un `UrlTile` avec `shouldReplaceMapContent={true}` et `urlTemplate` = `localUri` de `Asset.fromModule(require('../../../assets/blank-tile.png'))` après `downloadAsync()` (aucun placeholder `{z}/{x}/{y}`) ; l'afficher depuis App.tsx
-- [ ] T011 Exécuter le scénario V7 de specs/001-street-exploration-map/quickstart.md sur iPhone (proxy ou rapport de confidentialité iOS, 5 min de déplacements/zooms) et consigner le résultat dans la section R1 de specs/001-street-exploration-map/research.md. **Si une requête MapKit est observée : STOP, arbitrage du propriétaire (amender FR-001a/SC-005 ou rendu maison) avant de continuer**
+- [X] T011 Exécuter le scénario V7 de specs/001-street-exploration-map/quickstart.md sur iPhone (proxy ou rapport de confidentialité iOS, 5 min de déplacements/zooms) et consigner le résultat dans la section R1 de specs/001-street-exploration-map/research.md. **Si une requête MapKit est observée : STOP, arbitrage du propriétaire (amender FR-001a/SC-005 ou rendu maison) avant de continuer** — fait le 2026-10-08 : échec (noms Apple affichés), arbitrage = rendu maison (Phase 8)
 
 ### Modules de domaine partagés avec le script (feuilles, aucun import)
 
@@ -195,6 +195,41 @@ passent par `src/strings/fr.ts` (principe VI) : aucune chaîne affichée codée 
 - [ ] T070 [US4] Valider le scénario V4 de specs/001-street-exploration-map/quickstart.md sur iPhone
 
 **Checkpoint**: la carte est utilisable à tous les niveaux de zoom
+
+---
+
+## Phase 8: Rendu maison Skia (US1, US4 — R16)
+
+**Ajoutée le 2026-10-08** après l'échec du spike MapKit (noms Apple visibles) et le deuxième
+essai sur iPhone : toutes les rues à tout zoom, dézoom borné à l'île, échelle en bas à droite,
+quartiers en teinte légère sous les rues.
+
+**Goal**: remplacer react-native-maps par un rendu Skia sans aucun élément extérieur (FR-001, FR-001a, FR-017–FR-020, SC-008)
+
+**Independent Test**: quickstart V4 et V7
+
+### Tests ⚠️
+
+- [X] T071 [P] [US4] Écrire tests/unit/domain/camera.test.ts selon contracts/domain-api.md : aller-retour `project`/`unproject` et `worldToScreen`/`screenToWorld`, 1° de latitude ≈ 111 195 m, `minScale` (île entière visible), `clampCamera` (échelle ramenée entre `minScale` et `MAX_SCALE = 4`, centre ramené dans les bornes), `panBy`, `zoomAround` (le point sous le doigt reste fixe)
+- [X] T072 [P] [US4] Écrire tests/unit/domain/scaleBar.test.ts (1 px/m → 100 m / 100 px ; 0,03 px/m → 2 000 m / 60 px ; longueurs toujours 1, 2 ou 5 × 10ⁿ et ≤ 100 px) et ajouter `formatScale` à tests/unit/domain/format.test.ts (500 → « 500 m », 2000 → « 2 km », 10000 → « 10 km »)
+- [X] T073 [P] [US1] Écrire tests/unit/domain/hitTest.test.ts : `isQuartierView(0.5)` = false, `isQuartierView(0.3)` = true ; `nearestPoint` renvoie le point à 10 m plutôt qu'à 30 m, `null` si aucun point sous la tolérance
+- [X] T074 [US4] Déplacer tests/unit/scripts/pointInPolygon.test.ts vers tests/unit/domain/polygon.test.ts (import depuis src/domain/polygon)
+
+### Implementation
+
+- [X] T075 [US4] Déplacer scripts/build-streets/lib/pointInPolygon.ts vers src/domain/polygon.ts (imports de types uniquement) et l'importer depuis scripts/build-streets/build-streets.ts avec l'extension `.ts`
+- [X] T076 [P] [US4] Implémenter src/domain/camera.ts (projection équirectangulaire centrée sur l'île, caméra, bornes ; directive `'worklet'` sur les fonctions utilisées pendant les gestes)
+- [X] T077 [P] [US4] Implémenter src/domain/scaleBar.ts et `formatScale` dans src/domain/format.ts
+- [X] T078 [P] [US1] Implémenter src/domain/hitTest.ts
+- [X] T079 [US1] Dans src/data/streetsRepository.ts : ajouter `loadGeometry(db)` (tous les points triés par `segment_id, seq` via `executeForRawResultAsync`, en tableaux typés), `getAllVisitedCounts(db)` et `getSegment(db, id)` ; retirer `getVisibleSegments` et `getSegmentGeometries`
+- [X] T080 [US1] Créer src/ui/map/streetPaths.ts : projection de la géométrie, chemins Skia du réseau neutre par case de ~1 km, chemins des rues partielles et complétées, chemins remplis (pair-impair) des quartiers, chemin du tronçon sélectionné
+- [X] T081 [P] [US4] Créer src/ui/map/ScaleBar.tsx (en bas à droite, longueur et texte depuis `scaleBar`/`formatScale`, mise à jour pendant le zoom)
+- [X] T082 [US1] Créer src/ui/map/StreetsCanvas.tsx : `Canvas` Skia plein écran, caméra en valeurs partagées Reanimated, gestes glisser + pincer + toucher (Gesture Handler) bornés par `clampCamera`, réseau neutre (filet d'un pixel très dézoomé), rues partielles/complétées, teinte des quartiers si `isQuartierView`, sélection, position de l'utilisateur ; supprimer src/ui/map/StreetsMap.tsx et src/ui/map/useBlankTileUri.ts
+- [X] T083 [US1] Réécrire src/ui/MapScreen.tsx autour de StreetsCanvas (chargement de la géométrie et des compteurs, mise à jour en direct des rues et des quartiers, toucher → tronçon via grille + `nearestPoint` ou quartier via `findContaining`, cartes d'information) ; envelopper App.tsx dans `GestureHandlerRootView`
+- [X] T084 [US4] Supprimer react-native-maps, src/domain/viewport.ts, tests/unit/domain/viewport.test.ts et assets/blank-tile.png ; vérifier `npm run typecheck`, `npm test` et `npx expo export --platform ios`
+- [ ] T085 [US4] Valider sur iPhone les scénarios V4, V5 (temps de chargement) et V7 de specs/001-street-exploration-map/quickstart.md
+
+**Checkpoint**: carte entièrement dessinée par l'app, utilisable de la rue à l'île entière
 
 ---
 
