@@ -5,27 +5,42 @@ import { useSQLiteContext } from 'expo-sqlite';
 import type { LatLon } from '../domain/geo';
 import { neighborhood } from '../domain/grid';
 import { segmentState } from '../domain/progress';
+import { quartierLevel } from '../domain/quartiers';
 import { MAX_VISIBLE_SEGMENTS, queryBounds, shouldShowStreets, type Region } from '../domain/viewport';
 import { isUsableFix, visitedPointIds } from '../domain/visits';
 import {
   getCandidatePoints,
+  getQuartierTotals,
+  getQuartierVisited,
   getSegmentGeometries,
   getVisibleSegments,
   getVisitedCounts,
   insertVisitedPoints,
   resetHistory,
+  type QuartierTotals,
 } from '../data/streetsRepository';
 import { useForegroundLocation } from '../location/useForegroundLocation';
 import { fr } from '../strings/fr';
+import quartiersData from '../../assets/quartiers.json';
 import { MAP_BACKGROUND } from './map/stateColors';
-import { StreetsMap, type MapSegment } from './map/StreetsMap';
+import { StreetsMap, type MapQuartier, type MapSegment } from './map/StreetsMap';
 import { PermissionNotice } from './PermissionNotice';
+import { QuartierInfoCard } from './QuartierInfoCard';
 import { ResetHistoryButton } from './ResetHistoryButton';
 import { SegmentInfoCard } from './SegmentInfoCard';
 
 const DOWNTOWN: Region = { latitude: 45.5017, longitude: -73.5673, latitudeDelta: 0.008, longitudeDelta: 0.008 };
-// Un toucher de tronçon déclenche aussi le toucher de la carte : on ignore ce dernier.
-const SEGMENT_PRESS_GUARD_MS = 400;
+// Un toucher de tronçon ou de zone déclenche aussi le toucher de la carte : on ignore ce dernier.
+const SHAPE_PRESS_GUARD_MS = 400;
+
+// Zones de quartier (assets/quartiers.json, research.md R15), converties une seule fois.
+type QuartierShape = { name: string; outer: number[][][]; inner: number[][][] };
+const toCoords = (ring: number[][]) => ring.map(([latitude, longitude]) => ({ latitude, longitude }));
+const QUARTIER_SHAPES = (quartiersData as QuartierShape[]).map((q) => ({
+  name: q.name,
+  outer: q.outer.map(toCoords),
+  inner: q.inner.map(toCoords),
+}));
 
 type ShownSegment = {
   id: number;
@@ -35,16 +50,21 @@ type ShownSegment = {
   visitedCount: number;
   coords: LatLon[];
 };
+type Selection = { kind: 'segment'; id: number } | { kind: 'quartier'; name: string } | null;
+type Mode = 'streets' | 'quartiers';
 
 export function MapScreen() {
   const db = useSQLiteContext();
   const { permission, lastFix, requestPermission } = useForegroundLocation();
   const mapRef = useRef<MapView>(null);
 
+  const [mode, setMode] = useState<Mode>('streets');
+  const modeRef = useRef<Mode>('streets');
   const [segments, setSegments] = useState<Map<number, ShownSegment>>(new Map());
-  const [streetsVisible, setStreetsVisible] = useState(true);
+  const [quartierTotals, setQuartierTotals] = useState<Map<string, QuartierTotals>>(new Map());
+  const [quartierVisited, setQuartierVisited] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [selection, setSelection] = useState<Selection>(null);
 
   // Lectures et écritures sérialisées : évite qu'un rechargement de la zone et l'ajout de
   // points visités se croisent et comptent deux fois les mêmes points.
@@ -53,12 +73,25 @@ export function MapScreen() {
     queue.current = queue.current.then(task).catch((error: unknown) => console.error(error));
   }, []);
 
+  const quartierTotalsLoaded = useRef(false);
+  const switchMode = useCallback((next: Mode) => {
+    if (modeRef.current !== next) setSelection(null);
+    modeRef.current = next;
+    setMode(next);
+  }, []);
+
   const loadRegion = useCallback(
     (region: Region) =>
       enqueue(async () => {
         if (!shouldShowStreets(region)) {
-          setStreetsVisible(false);
+          // Vue par quartier (US4) : totaux chargés une fois, visités rechargés à chaque entrée.
+          if (!quartierTotalsLoaded.current) {
+            setQuartierTotals(await getQuartierTotals(db));
+            quartierTotalsLoaded.current = true;
+          }
+          setQuartierVisited(await getQuartierVisited(db));
           setSegments(new Map());
+          switchMode('quartiers');
           setLoading(false);
           return;
         }
@@ -79,11 +112,11 @@ export function MapScreen() {
             coords: geometries.get(row.id) ?? [],
           });
         }
-        setStreetsVisible(true);
+        switchMode('streets');
         setSegments(next);
         setLoading(false);
       }),
-    [db, enqueue],
+    [db, enqueue, switchMode],
   );
 
   // Premier affichage : progression persistée, même sans position GPS (US2).
@@ -99,7 +132,7 @@ export function MapScreen() {
     mapRef.current?.animateToRegion({ ...DOWNTOWN, latitude: lastFix.lat, longitude: lastFix.lon });
   }, [lastFix]);
 
-  // Chaque position utilisable visite les points proches et met à jour les tronçons affichés.
+  // Chaque position utilisable visite les points proches et met à jour l'affichage courant.
   useEffect(() => {
     if (!lastFix || !isUsableFix(lastFix)) return;
     const fix = lastFix;
@@ -107,6 +140,10 @@ export function MapScreen() {
       const candidates = await getCandidatePoints(db, neighborhood(fix.lat, fix.lon));
       const inserted = await insertVisitedPoints(db, visitedPointIds(fix, candidates));
       if (inserted.length === 0) return;
+      if (modeRef.current === 'quartiers') {
+        setQuartierVisited(await getQuartierVisited(db));
+        return;
+      }
       const segmentOf = new Map(candidates.map((c) => [c.id, c.segmentId]));
       const added = new Map<number, number>();
       for (const id of inserted) {
@@ -128,7 +165,8 @@ export function MapScreen() {
     () =>
       enqueue(async () => {
         await resetHistory(db);
-        setSelectedId(null);
+        setSelection(null);
+        setQuartierVisited(new Map());
         setSegments((current) => {
           const next = new Map<number, ShownSegment>();
           for (const [id, shown] of current) next.set(id, { ...shown, visitedCount: 0 });
@@ -138,13 +176,17 @@ export function MapScreen() {
     [db, enqueue],
   );
 
-  const lastSegmentPress = useRef(0);
+  const lastShapePress = useRef(0);
   const onSegmentPress = useCallback((id: number) => {
-    lastSegmentPress.current = Date.now();
-    setSelectedId(id);
+    lastShapePress.current = Date.now();
+    setSelection({ kind: 'segment', id });
+  }, []);
+  const onQuartierPress = useCallback((name: string) => {
+    lastShapePress.current = Date.now();
+    setSelection({ kind: 'quartier', name });
   }, []);
   const onMapPress = useCallback(() => {
-    if (Date.now() - lastSegmentPress.current > SEGMENT_PRESS_GUARD_MS) setSelectedId(null);
+    if (Date.now() - lastShapePress.current > SHAPE_PRESS_GUARD_MS) setSelection(null);
   }, []);
 
   const mapSegments = useMemo<MapSegment[]>(
@@ -157,8 +199,40 @@ export function MapScreen() {
     [segments],
   );
 
-  const selected = selectedId !== null ? segments.get(selectedId) : undefined;
+  // Seules les zones qui contiennent des rues de l'île sont affichées (FR-017).
+  const mapQuartiers = useMemo<MapQuartier[]>(() => {
+    if (mode !== 'quartiers') return [];
+    return QUARTIER_SHAPES.filter((q) => (quartierTotals.get(q.name)?.totalPoints ?? 0) > 0).map((q) => ({
+      ...q,
+      level: quartierLevel(quartierVisited.get(q.name) ?? 0, quartierTotals.get(q.name)?.totalPoints ?? 0),
+    }));
+  }, [mode, quartierTotals, quartierVisited]);
+
+  const selectedSegment = selection?.kind === 'segment' ? segments.get(selection.id) : undefined;
+  const selectedQuartier = selection?.kind === 'quartier' ? selection.name : null;
+  const selectedQuartierTotals = selectedQuartier !== null ? quartierTotals.get(selectedQuartier) : undefined;
   const userPosition = lastFix && isUsableFix(lastFix) ? { lat: lastFix.lat, lon: lastFix.lon } : null;
+
+  let card = <PermissionNotice permission={permission} onRequest={requestPermission} />;
+  if (selectedSegment) {
+    card = (
+      <SegmentInfoCard
+        name={selectedSegment.name}
+        lengthM={selectedSegment.lengthM}
+        pointCount={selectedSegment.pointCount}
+        visitedCount={selectedSegment.visitedCount}
+      />
+    );
+  } else if (selectedQuartier !== null && selectedQuartierTotals) {
+    card = (
+      <QuartierInfoCard
+        name={selectedQuartier}
+        visitedPoints={quartierVisited.get(selectedQuartier) ?? 0}
+        totalPoints={selectedQuartierTotals.totalPoints}
+        totalLengthM={selectedQuartierTotals.totalLengthM}
+      />
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -166,14 +240,17 @@ export function MapScreen() {
         ref={mapRef}
         initialRegion={DOWNTOWN}
         segments={mapSegments}
-        selectedId={selectedId}
+        quartiers={mapQuartiers}
+        selectedId={selectedSegment?.id ?? null}
+        selectedQuartier={selectedQuartier}
         userPosition={userPosition}
         onRegionChangeComplete={loadRegion}
         onSegmentPress={onSegmentPress}
+        onQuartierPress={onQuartierPress}
         onMapPress={onMapPress}
       />
 
-      {!streetsVisible && (
+      {mode === 'quartiers' && !loading && (
         <View style={styles.hint} pointerEvents="none">
           <Text style={styles.hintText}>{fr.map.zoomIn}</Text>
         </View>
@@ -188,16 +265,7 @@ export function MapScreen() {
 
       <ResetHistoryButton onConfirm={onReset} />
 
-      {selected ? (
-        <SegmentInfoCard
-          name={selected.name}
-          lengthM={selected.lengthM}
-          pointCount={selected.pointCount}
-          visitedCount={selected.visitedCount}
-        />
-      ) : (
-        <PermissionNotice permission={permission} onRequest={requestPermission} />
-      )}
+      {card}
 
       <Text style={styles.attribution} pointerEvents="none">
         {fr.map.attribution}

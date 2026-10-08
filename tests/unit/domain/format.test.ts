@@ -1,4 +1,11 @@
-import { formatLength } from '../../../src/domain/format';
+import { formatLength, formatPercent } from '../../../src/domain/format';
+
+describe('formatPercent', () => {
+  it('affiche une décimale avec une virgule', () => {
+    expect(formatPercent(0.7)).toBe('0,7 %');
+    expect(formatPercent(12)).toBe('12,0 %');
+  });
+});
 
 describe('formatLength', () => {
   it('affiche les mètres sous 1 km', () => {

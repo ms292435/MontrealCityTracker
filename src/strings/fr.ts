@@ -21,6 +21,9 @@ export const fr = {
   segmentInfo: {
     details: (percent: number, length: string) => `${percent} % parcourue · Longueur ${length}`,
   },
+  quartierInfo: {
+    details: (percent: string, length: string) => `${percent} parcouru · ${length} de rues`,
+  },
   streetNames: {
     alley: 'Ruelle',
     unknownQuartier: 'Inconnu',

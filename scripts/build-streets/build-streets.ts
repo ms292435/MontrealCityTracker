@@ -15,6 +15,7 @@ import { ACCEPTED_HIGHWAYS, displayName, isEligible, type Tags } from './lib/eli
 import { findContaining, pointInPolygon, type NamedPolygon, type Polygon } from './lib/pointInPolygon.ts';
 import { polylineLength, resample } from './lib/resample.ts';
 import { buildSegments, type OsmWay } from './lib/segmentation.ts';
+import { simplify } from './lib/simplify.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -23,6 +24,7 @@ const CACHE_DIR = join(HERE, 'cache');
 const BOUNDARIES_FILE = join(INPUT_DIR, 'limites-administratives-agglomeration.geojson');
 const OVERPASS_CACHE = join(CACHE_DIR, 'overpass.json');
 const OUTPUT_DB = join(ROOT, 'assets', 'streets.db');
+const OUTPUT_QUARTIERS = join(ROOT, 'assets', 'quartiers.json');
 
 const BOUNDARIES_URL =
   'https://donnees.montreal.ca/dataset/9797a946-9da8-41ec-8815-f6b276dec7e9/resource/e18bfd07-edc8-4ce8-8a5a-3b617662a794/download/limites-administratives-agglomeration.geojson';
@@ -304,6 +306,22 @@ function writeDatabase(segments: OutSegment[], osmTimestamp: string): void {
   db.close();
 }
 
+// ---------- 6. Zones de quartier pour la vue dézoomée (research.md R15) ----------
+
+const QUARTIER_TOLERANCE_M = 15;
+
+function writeQuartiers(boundaries: NamedPolygon[]): void {
+  const round = (v: number) => Math.round(v * 1e5) / 1e5;
+  const toPairs = (ring: LatLon[]) =>
+    simplify(ring, QUARTIER_TOLERANCE_M).map((p) => [round(p.lat), round(p.lon)]);
+  const quartiers = boundaries.map(({ name, polygon }) => ({
+    name,
+    outer: polygon.outer.map(toPairs),
+    inner: polygon.inner.map(toPairs),
+  }));
+  writeFileSync(OUTPUT_QUARTIERS, JSON.stringify(quartiers));
+}
+
 // ---------- Orchestration ----------
 
 async function main(): Promise<void> {
@@ -320,6 +338,7 @@ async function main(): Promise<void> {
   const { segments, outsideIsland, unknownQuartier } = buildOutput(ways, island, boundaries);
   checkInvariants(segments);
   writeDatabase(segments, data.osm3s.timestamp_osm_base);
+  writeQuartiers(boundaries);
 
   const pointCount = segments.reduce((sum, s) => sum + s.points.length, 0);
   const sizeMb = statSync(OUTPUT_DB).size / 1024 / 1024;
@@ -327,6 +346,7 @@ async function main(): Promise<void> {
   log(`Points écrits : ${pointCount}.`);
   log(`Tronçons sans quartier (« ${fr.streetNames.unknownQuartier} ») : ${unknownQuartier}.`);
   log(`Fichier : ${OUTPUT_DB} (${sizeMb.toFixed(1)} Mo).`);
+  log(`Zones de quartier : ${OUTPUT_QUARTIERS} (${(statSync(OUTPUT_QUARTIERS).size / 1024).toFixed(0)} Ko).`);
   if (sizeMb > 50) log('ATTENTION : plus de 50 Mo, revoir l’éligibilité des voies (research.md R4).');
 }
 

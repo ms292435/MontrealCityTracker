@@ -11,7 +11,9 @@ transforme l'exploration de la ville en une carte qui se remplit au fil de vos m
 - quand vous marchez avec l'app ouverte, chaque rue que vous empruntez se colore, d'abord comme
   « partiellement parcourue », puis « complétée » quand vous en avez couvert au moins 90 % ;
 - votre progression est conservée d'une sortie à l'autre ;
-- toucher une rue affiche son nom, son pourcentage parcouru, son état et sa longueur.
+- toucher une rue affiche son nom, son pourcentage parcouru, son état et sa longueur ;
+- en dézoomant, les arrondissements et villes liées se colorent selon la part de leurs rues
+  déjà parcourue, pour voir d'un coup d'œil les secteurs connus et ceux à découvrir.
 
 L'idée est simple : donner envie de sortir des trajets habituels et de voir, rue après rue, la
 part de la ville que l'on connaît vraiment.
@@ -60,15 +62,23 @@ Quelques enseignements de l'expérience, visibles dans l'historique git :
   justifié dans le plan ;
 - l'analyse de cohérence a détecté de vraies incohérences (seuil de zoom contre « toutes les
   rues », tri avant la limite d'affichage) ;
+- le premier essai sur iPhone a fait émerger un besoin absent de la spec (carte dézoomée vide) :
+  il a été traité comme une nouvelle clarification et un nouveau récit utilisateur (US4) avant
+  d'écrire le code, et la demande de carte 3D a été écartée au nom du principe de vie privée ;
 - l'implémentation a tout de même révélé des écarts que les documents n'avaient pas anticipés
   (option GPS inexistante, serveur Overpass surchargé), reportés dans les documents.
 
 ## État du projet
 
-- ✅ Code complet de la v1, 95 tests unitaires, TypeScript strict, bundle iOS compilé
-- ✅ Données des rues générées : 53 757 tronçons, 377 200 points (23 Mo)
-- ⏳ Validation sur iPhone à faire (tâches T011, T046, T049, T053, T058–T060), en commençant
-  par le test réseau d'Apple Maps (T011), qui conditionne le principe de vie privée
+- ✅ Code complet de la v1, 114 tests unitaires, TypeScript strict, bundle iOS compilé
+- ✅ Données des rues générées : 53 757 tronçons, 377 200 points (23 Mo), 34 zones de quartier
+- ✅ Premier lancement sur iPhone réussi (via le partage de connexion de l'iPhone)
+- ⏳ Validation sur iPhone à terminer (tâches T011, T046, T049, T053, T058–T060, T070), en
+  commençant par le test réseau d'Apple Maps (T011), qui conditionne le principe de vie privée
+
+> Sur un réseau d'université ou d'entreprise, l'iPhone ne peut souvent pas joindre
+> l'ordinateur : utilisez le partage de connexion de l'iPhone (sans VPN) ou
+> `npx expo start --tunnel`.
 
 ## Prérequis
 

@@ -119,6 +119,26 @@ export async function getVisitedCounts(
   return counts;
 }
 
+export type QuartierTotals = { totalPoints: number; totalLengthM: number };
+
+export async function getQuartierTotals(db: SQLiteDatabase): Promise<Map<string, QuartierTotals>> {
+  const rows = await db.getAllAsync<{ quartier: string; points: number; length: number }>(
+    'SELECT quartier, SUM(point_count) AS points, SUM(length_m) AS length FROM segment GROUP BY quartier',
+  );
+  return new Map(rows.map((r) => [r.quartier, { totalPoints: r.points, totalLengthM: r.length }]));
+}
+
+export async function getQuartierVisited(db: SQLiteDatabase): Promise<Map<string, number>> {
+  const rows = await db.getAllAsync<{ quartier: string; visited: number }>(
+    `SELECT s.quartier, COUNT(*) AS visited
+     FROM visited_point v
+     JOIN point p ON p.id = v.point_id
+     JOIN segment s ON s.id = p.segment_id
+     GROUP BY s.quartier`,
+  );
+  return new Map(rows.map((r) => [r.quartier, r.visited]));
+}
+
 // Chaque position est validée immédiatement dans sa propre transaction : aucun tampon en
 // mémoire, donc rien n'est perdu si l'app est tuée (FR-010).
 // Retourne les points réellement nouveaux (déjà visités = ignorés).
