@@ -17,7 +17,8 @@ extraction OSM (Overpass), filtrage des voies éligibles, découpage en tronçon
 intersections, rééchantillonnage en points tous les ~20 m, association au quartier, calcul de
 cellules de grille ; le résultat est une base SQLite `assets/streets.db` embarquée dans l'app.
 L'app retrouve les points proches par un index de grille 3×3 et n'affiche que les tronçons de la
-zone visible (zoom limité, plafond de 1 500 tronçons). Détails : [research.md](research.md).
+zone visible (zoom limité, plafond de 1 500 tronçons) ; au-delà, les arrondissements et villes
+liées sont colorés selon la progression (R15). Détails : [research.md](research.md).
 
 ## Technical Context
 
@@ -91,7 +92,8 @@ package.json                    # scripts : start, test, typecheck, build:street
 
 assets/
 ├── streets.db                  # généré par le script (ODbL)
-└── blank-tile.png              # tuile unie remplaçant le fond Apple
+├── blank-tile.png              # tuile unie remplaçant le fond Apple
+└── quartiers.json              # zones simplifiées pour la vue par quartier (R15)
 
 src/
 ├── domain/                     # pur, sans React/Expo/SQLite
@@ -100,7 +102,8 @@ src/
 │   ├── visits.ts
 │   ├── progress.ts
 │   ├── viewport.ts
-│   └── format.ts
+│   ├── format.ts
+│   └── quartiers.ts            # paliers et pourcentage par quartier (R15)
 ├── data/
 │   └── streetsRepository.ts    # requêtes SQL du contrat streets-db.md
 ├── location/
@@ -111,6 +114,7 @@ src/
 │   │   ├── StreetsMap.tsx
 │   │   └── stateColors.ts
 │   ├── SegmentInfoCard.tsx
+│   ├── QuartierInfoCard.tsx
 │   ├── ResetHistoryButton.tsx
 │   └── PermissionNotice.tsx
 └── strings/
@@ -122,6 +126,7 @@ scripts/build-streets/
 │   ├── eligibility.ts          # R4
 │   ├── segmentation.ts         # R6
 │   ├── resample.ts             # R7
+│   ├── simplify.ts             # R15 : Douglas-Peucker
 │   ├── assembleRings.ts        # R5 : polygone de l'île à partir des membres OSM
 │   └── pointInPolygon.ts       # R5
 ├── input/                      # GeoJSON des limites administratives (téléchargé à la main)

@@ -43,6 +43,19 @@ Deux tronçons qui se touchent ont chacun leur propre point à l'intersection (p
 Aucun horodatage ni aucune position brute ne sont stockés : seul le fait qu'un point ait été
 visité est conservé (minimisation, principe I). Les positions GPS ne sont jamais persistées.
 
+### Zone de quartier (`assets/quartiers.json`, hors base)
+
+| Champ | Type | Règle |
+|-------|------|-------|
+| `name` | texte | égal à `segment.quartier` des tronçons de la zone |
+| `outer` | anneaux `[lat, lon][]` | contours extérieurs simplifiés (15 m) |
+| `inner` | anneaux `[lat, lon][]` | trous éventuels |
+
+Valeurs dérivées par zone : `total_points` = `SUM(point_count)`, `total_length_m` =
+`SUM(length_m)`, `visited_points` = nombre de `visited_point` de ses tronçons ;
+`percent` = `floor(visited / total × 1000) / 10` ; **palier** (FR-017) : 0 si 0 %,
+1 si < 1 %, 2 si < 5 %, 3 si < 15 %, 4 si < 40 %, 5 sinon.
+
 ## Valeurs dérivées (calculées, jamais stockées)
 
 - `visited_count(segment)` = nombre de `visited_point` dont le point appartient au tronçon.

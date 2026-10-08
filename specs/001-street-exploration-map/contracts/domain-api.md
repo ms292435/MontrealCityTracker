@@ -43,6 +43,15 @@ export function segmentState(visitedCount: number, pointCount: number): SegmentS
 export function percentVisited(visitedCount: number, pointCount: number): number; // floor, 0..100
 ```
 
+## `quartiers.ts`
+
+```ts
+export type QuartierLevel = 0 | 1 | 2 | 3 | 4 | 5;
+export function quartierPercent(visitedPoints: number, totalPoints: number): number; // floor au dixième
+export function quartierLevel(visitedPoints: number, totalPoints: number): QuartierLevel;
+// 0 si aucun point ; puis paliers < 1 %, < 5 %, < 15 %, < 40 %, ≥ 40 % (FR-017)
+```
+
 ## `viewport.ts`
 
 ```ts
@@ -74,3 +83,7 @@ export function formatLength(meters: number): string; // « 85 m », « 1,2 km �
 | `visitedPointIds` | point à 24,9 m / 25 m | visité / non visité |
 | `neighborhood` | point au coin d'une cellule | contient toutes les cellules à < 25 m |
 | `formatLength` | 85 / 1234 | « 85 m » / « 1,2 km » |
+| `quartierLevel` | 0 / 1000 ; 1 / 1000 ; 10 / 1000 ; 50 / 1000 ; 150 / 1000 ; 400 / 1000 | 0 ; 1 ; 2 ; 3 ; 4 ; 5 |
+| `quartierPercent` | 7 / 1000 ; 1999 / 2000 | 0,7 ; 99,9 |
+| `formatPercent` | 0,7 ; 12 | « 0,7 % » ; « 12,0 % » |
+| `simplify` (script) | ligne droite à points intermédiaires ; coude de 30 m | extrémités seules ; coude conservé |

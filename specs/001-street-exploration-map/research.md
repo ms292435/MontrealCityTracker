@@ -171,7 +171,7 @@ grille et la zone visible, une seule technologie de stockage (déjà imposée).
 **Décision** : à chaque `onRegionChangeComplete`, si `latitudeDelta ≤ 0.015` (≈ 1,7 km),
 requête des tronçons dont la boîte englobante intersecte la région élargie de 20 % ; plafond de
 **1 500** tronçons (au-delà : on garde les plus proches du centre). Au-dessus du seuil de zoom :
-aucune rue, message « Zoomez pour voir les rues ». Chaque tronçon = un `Polyline` (`tappable`,
+aucune rue, vue par quartier (R15). Chaque tronçon = un `Polyline` (`tappable`,
 `onPress` → fiche FR-008a), couleur selon l'état. Seuil et plafond sont des constantes à
 ajuster après mesure sur iPhone.
 
@@ -206,6 +206,28 @@ l'état des seuls tronçons concernés et mise à jour de l'état React de la ca
 
 **Alternatives écartées** : Vitest (second outillage à configurer avec Babel/Expo) ; tests
 d'interface/E2E (hors principe V, coût élevé pour un projet solo en v1).
+
+## R15. Vue par quartier au dézoom (US4, FR-017, FR-018)
+
+**Décision** :
+- Le script écrit un second asset, `assets/quartiers.json` : pour chacune des 34 zones des
+  limites administratives, son nom (`NOM`) et ses anneaux simplifiés par Douglas-Peucker
+  (tolérance 15 m, coordonnées arrondies à 1e-5°), importé directement par le bundle JS.
+- Les totaux par zone (points, longueur) sont calculés à l'exécution par SQL
+  (`GROUP BY segment.quartier`), une fois au démarrage ; les points visités par zone par une
+  jointure `visited_point → point → segment`, rejouée après chaque visite en vue par quartier.
+- Rendu : un `Polygon` react-native-maps par anneau extérieur (trous via `holes`), `tappable`,
+  couleur de remplissage selon le palier de FR-017 (fonction pure `quartierLevel`).
+- Les zones dont le total de points est 0 ne sont pas affichées.
+
+**Justification** : aucun changement du schéma de `streets.db` ni de migration de la base déjà
+copiée sur l'appareil ; 34 polygones simplifiés restent légers pour MapKit ; les paliers rendent
+visibles de faibles progressions (un arrondissement compte des milliers de points).
+
+**Alternatives écartées** : carte 3D avec bâtiments (fond Apple téléchargé, contraire au
+principe I ; ou moteur 3D natif, contraire au principe III) ; toutes les rues en tuiles
+d'images embarquées (plusieurs Mo et un moteur de rendu dans le script) ; échelle de couleur
+linéaire 0–100 % (tout resterait pâle pendant des mois).
 
 ## R14. Licences et attribution
 

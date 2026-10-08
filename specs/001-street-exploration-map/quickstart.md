@@ -43,10 +43,11 @@ Scanner le QR code avec l'appareil photo de l'iPhone.
 
 | # | Scénario | Résultat attendu | Spec |
 |---|----------|------------------|------|
+| V0 | iPhone et ordinateur sur un réseau sans isolation des clients (ex. partage de connexion de l'iPhone), VPN coupé ; sinon `npx expo start --tunnel` | L'app se charge dans Expo Go | — |
 | V1 | Premier lancement, accepter la localisation | Carte sur fond uni, centrée sur la position ; rues neutres ; message d'attribution visible | US1-1, FR-001a |
 | V2 | Marcher ~100 m le long d'une rue | Le tronçon passe à « partielle » puis « complétée » en ≤ 5 s après le passage | US1-2/3/4, SC-001/002 |
 | V3 | Toucher un tronçon | Fiche : nom, %, état, longueur ; toucher ailleurs la masque | US1-5, FR-008a |
-| V4 | Dézoomer au-delà de ~1,7 km | Les rues disparaissent, message « Zoomez pour voir les rues » ; la carte reste fluide | R10 |
+| V4 | Dézoomer au-delà de ~1,7 km | Les rues laissent place aux arrondissements colorés selon la progression ; toucher une zone affiche nom, % et longueur ; marcher met la couleur à jour ; rezoomer fait revenir les rues ; la carte reste fluide | US4, FR-017, FR-018, R10, R15 |
 | V5 | Fermer complètement l'app, mode avion, rouvrir | Même progression affichée en < 3 s | US2, SC-003 |
 | V6 | Effacer l'historique → Annuler, puis → Confirmer, puis relancer | Annuler : rien ne change ; Confirmer : toutes les rues neutres, y compris après relance | US3, SC-004 |
 | V7 | 5 min de navigation sur la carte avec proxy actif | 0 requête réseau émise par l'app (hors serveur de dev Expo) | SC-005, R1 |

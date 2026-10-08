@@ -58,6 +58,16 @@ CREATE TABLE IF NOT EXISTS visited_point (
    le script échoue (code ≠ 0) si l'un d'eux est violé.
 4. La base est compactée (`VACUUM`) et ne contient aucune table `visited_point`.
 
+## Fichier compagnon `assets/quartiers.json` (R15)
+
+```json
+[{ "name": "Le Plateau-Mont-Royal", "outer": [[[45.5, -73.6], ...]], "inner": [] }, ...]
+```
+
+Garanties : un objet par entité du GeoJSON des limites administratives ; `name` = `NOM` ;
+anneaux fermés (premier point = dernier point) simplifiés à 15 m ; coordonnées `[lat, lon]`
+en degrés, 5 décimales.
+
 ## Requêtes de l'application (référence)
 
 | Usage | Requête |
@@ -68,3 +78,5 @@ CREATE TABLE IF NOT EXISTS visited_point (
 | Progression | `SELECT p.segment_id, COUNT(*) FROM visited_point v JOIN point p ON p.id = v.point_id WHERE p.segment_id IN (…) GROUP BY p.segment_id` |
 | Visite | `INSERT OR IGNORE INTO visited_point(point_id) VALUES (?)` |
 | Effacement | `DELETE FROM visited_point; VACUUM;` |
+| Totaux par quartier | `SELECT quartier, SUM(point_count), SUM(length_m) FROM segment GROUP BY quartier` |
+| Visités par quartier | `SELECT s.quartier, COUNT(*) FROM visited_point v JOIN point p ON p.id = v.point_id JOIN segment s ON s.id = p.segment_id GROUP BY s.quartier` |

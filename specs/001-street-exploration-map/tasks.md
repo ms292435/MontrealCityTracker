@@ -170,6 +170,34 @@ passent par `src/strings/fr.ts` (principe VI) : aucune chaîne affichée codée 
 
 ---
 
+## Phase 7: User Story 4 - Voir sa progression par quartier en dézoomant (Priority: P2)
+
+**Ajoutée le 2026-10-08** après le premier essai sur iPhone (carte dézoomée inutilisable).
+
+**Goal**: au-delà de l'échelle d'un quartier, afficher les arrondissements et villes liées colorés selon le pourcentage parcouru (FR-017), avec une fiche au toucher (FR-018)
+
+**Independent Test**: après avoir parcouru quelques rues, dézoomer : l'arrondissement concerné est coloré, les autres neutres ; le toucher affiche nom, % et longueur (quickstart V4)
+
+### Tests for User Story 4 ⚠️
+
+- [X] T061 [P] [US4] Écrire tests/unit/scripts/simplify.test.ts : `simplify(ring, 15)` garde les extrémités, supprime les points intermédiaires d'une ligne droite, conserve un coude de 30 m, garde un anneau fermé fermé
+- [X] T062 [P] [US4] Écrire tests/unit/domain/quartiers.test.ts selon contracts/domain-api.md : `quartierLevel` (0/1000 → 0, 1/1000 → 1, 10/1000 → 2, 50/1000 → 3, 150/1000 → 4, 400/1000 → 5, total 0 → 0), `quartierPercent` (7/1000 → 0,7 ; 1999/2000 → 99,9), et dans tests/unit/domain/format.test.ts `formatPercent` (0,7 → « 0,7 % » ; 12 → « 12,0 % »)
+
+### Implementation for User Story 4
+
+- [X] T063 [P] [US4] Implémenter scripts/build-streets/lib/simplify.ts (Douglas-Peucker en mètres via `distanceMeters`, tolérance en paramètre)
+- [X] T064 [P] [US4] Implémenter src/domain/quartiers.ts (`QuartierLevel`, `quartierPercent`, `quartierLevel`) et ajouter `formatPercent` à src/domain/format.ts
+- [X] T065 [US4] Dans scripts/build-streets/build-streets.ts, écrire assets/quartiers.json (contrat « Fichier compagnon » de contracts/streets-db.md : `name`, anneaux `outer`/`inner` simplifiés à 15 m, `[lat, lon]` à 5 décimales) ; régénérer avec `npm run build:streets` (le cache Overpass évite une nouvelle requête)
+- [X] T066 [US4] Ajouter `getQuartierTotals(db)` (points et longueur par quartier) et `getQuartierVisited(db)` dans src/data/streetsRepository.ts (requêtes du contrat)
+- [X] T067 [P] [US4] Ajouter les couleurs des 6 paliers dans src/ui/map/stateColors.ts, les textes de la fiche dans src/strings/fr.ts, et créer src/ui/QuartierInfoCard.tsx (nom, `formatPercent(quartierPercent)` parcouru, longueur totale)
+- [X] T068 [US4] Dans src/ui/map/StreetsMap.tsx, accepter une prop `quartiers` (anneaux, palier, sélection) et dessiner un `Polygon` `tappable` par anneau extérieur avec ses trous
+- [X] T069 [US4] Dans src/ui/MapScreen.tsx : au-delà de `MAX_LATITUDE_DELTA`, passer en vue par quartier (zones de assets/quartiers.json dont le total est > 0, paliers calculés avec les totaux chargés une fois et les visités rechargés à l'entrée dans cette vue et après chaque visite), fiche QuartierInfoCard au toucher, retour aux rues en zoomant
+- [ ] T070 [US4] Valider le scénario V4 de specs/001-street-exploration-map/quickstart.md sur iPhone
+
+**Checkpoint**: la carte est utilisable à tous les niveaux de zoom
+
+---
+
 ## Dependencies & Execution Order
 
 ### Phase Dependencies

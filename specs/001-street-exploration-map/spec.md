@@ -22,6 +22,14 @@
   visités ? → A: Oui ; tout point à moins de 25 m d'une position est visité, quelle que soit la
   rue empruntée (un tronçon très court peut ainsi être complété en le traversant).
 
+### Session 2026-10-08 (retours du premier essai sur iPhone)
+
+- Q: Faut-il une carte 3D avec bâtiments, comme Plans ? → A: Non ; la carte reste en 2D, sans fond
+  de carte téléchargé (FR-001a inchangée, principe I de la constitution respecté).
+- Q: Que montre la carte quand on dézoome au-delà d'un quartier ? → A: Les arrondissements et
+  villes liées, colorés selon le pourcentage parcouru de leurs rues ; les rues réapparaissent en
+  zoomant. Cette progression par quartier est la seule « statistique » admise en v1.
+
 **Input**: User description: "Une application mobile pour découvrir Montréal à pied. L'utilisateur voit une carte de la ville. Quand l'application est ouverte et qu'il se déplace, les rues qu'il parcourt se colorent de façon permanente sur la carte ; les rues jamais parcourues restent dans une couleur neutre. Chaque rue est représentée par une suite de points ; un point est visité quand l'utilisateur passe à moins de 25 mètres, et une rue est complétée quand au moins 90 % de ses points sont visités. Les rues partiellement parcourues sont visibles comme telles. L'historique est conservé entre les sessions et stocké uniquement sur l'appareil. L'utilisateur peut effacer tout son historique. Les autoroutes, tunnels et voies privées sont exclus. Hors périmètre pour cette version : suivi en arrière-plan, statistiques, badges, comptes, autres villes."
 
 ## User Scenarios & Testing *(mandatory)*
@@ -41,8 +49,8 @@ qu'elle passe de l'état neutre à « partiellement parcourue », puis à « com
 **Acceptance Scenarios**:
 
 1. **Given** l'utilisateur n'a jamais rien parcouru, **When** il ouvre l'application,
-   **Then** la carte de Montréal s'affiche, centrée sur sa position, avec toutes les rues
-   éligibles dans la couleur neutre.
+   **Then** la carte de Montréal s'affiche, centrée sur sa position, avec les rues éligibles de
+   la zone visible dans la couleur neutre.
 2. **Given** l'application est ouverte, **When** l'utilisateur passe à moins de 25 m d'un point
    d'une rue, **Then** ce point est marqué visité et la rue apparaît comme partiellement
    parcourue.
@@ -96,6 +104,35 @@ toutes les rues sont neutres, y compris après redémarrage de l'application.
 
 ---
 
+### User Story 4 - Voir sa progression par quartier en dézoomant (Priority: P2)
+
+Quand l'utilisateur dézoome au-delà de l'échelle d'un quartier, les rues laissent la place aux
+arrondissements et villes liées de l'île, colorés selon la part de leurs rues déjà parcourue.
+Il voit d'un coup d'œil les secteurs qu'il connaît et ceux qui restent à découvrir ; en zoomant,
+les rues réapparaissent.
+
+**Why this priority**: sans cette vue, la carte dézoomée est vide et inutilisable (retour du
+premier essai sur iPhone) ; elle donne aussi la vue d'ensemble qui motive l'exploration.
+
+**Independent Test**: après avoir parcouru quelques rues d'un arrondissement, dézoomer : cet
+arrondissement est coloré, les autres restent neutres ; le toucher affiche son pourcentage.
+
+**Acceptance Scenarios**:
+
+1. **Given** la carte est zoomée sur un quartier, **When** l'utilisateur dézoome au-delà
+   d'environ 1,7 km de hauteur visible, **Then** les rues disparaissent et les arrondissements et
+   villes liées apparaissent, chacun coloré selon son pourcentage parcouru.
+2. **Given** un arrondissement sans aucun point visité, **When** la vue par quartier s'affiche,
+   **Then** il apparaît dans la couleur neutre.
+3. **Given** la vue par quartier, **When** l'utilisateur touche un arrondissement, **Then** il
+   voit son nom, son pourcentage parcouru (une décimale) et la longueur totale de ses rues.
+4. **Given** la vue par quartier, **When** l'utilisateur visite de nouveaux points, **Then** la
+   couleur et le pourcentage de son arrondissement se mettent à jour sans action de sa part.
+5. **Given** la vue par quartier, **When** l'utilisateur zoome à l'échelle d'un quartier,
+   **Then** les rues réapparaissent avec leurs états.
+
+---
+
 ### Edge Cases
 
 - L'utilisateur refuse la permission de localisation : la carte reste consultable (progression
@@ -126,7 +163,8 @@ toutes les rues sont neutres, y compris après redémarrage de l'application.
 
 ### Functional Requirements
 
-- **FR-001**: Le système DOIT afficher une carte de Montréal présentant toutes les rues éligibles
+- **FR-001**: Le système DOIT afficher une carte de Montréal présentant, à l'échelle d'un
+  quartier, les rues éligibles de la zone visible, et au-delà, la vue par quartier (FR-017),
   ainsi que la position actuelle de l'utilisateur.
 - **FR-001a**: La carte NE DOIT PAS utiliser de fond de carte téléchargé : elle se compose
   uniquement des tracés des rues embarqués dans l'application, dessinés sur un fond uni, et de la
@@ -152,7 +190,7 @@ toutes les rues sont neutres, y compris après redémarrage de l'application.
 - **FR-008**: Le système DOIT afficher chaque état de rue de façon visuellement distincte ; les
   rues non parcourues DOIVENT apparaître dans une couleur neutre.
 - **FR-008a**: Lorsque l'utilisateur touche un tronçon sur la carte, le système DOIT afficher le
-  nom de la rue, le pourcentage de points visités (arrondi à l'entier), l'état textuel (« Non
+  nom de la rue, le pourcentage de points visités (arrondi à l'entier inférieur), l'état textuel (« Non
   parcourue », « Partiellement parcourue », « Complétée ») et la longueur du tronçon (en mètres
   ou kilomètres). Toucher ailleurs sur la carte DOIT masquer ces informations.
 - **FR-009**: Un point visité DOIT le rester définitivement (jusqu'à effacement de l'historique) ;
@@ -169,6 +207,14 @@ toutes les rues sont neutres, y compris après redémarrage de l'application.
 - **FR-015**: Le système DOIT demander la permission de localisation avec une explication en
   français et rester utilisable en consultation si elle est refusée.
 - **FR-016**: Tous les textes de l'interface DOIVENT être en français.
+- **FR-017**: Au-delà de l'échelle d'un quartier, le système DOIT afficher les arrondissements et
+  villes liées de l'île comme des zones colorées selon le pourcentage de points visités parmi
+  tous les points de leurs rues, avec une couleur neutre à 0 % et une teinte de plus en plus
+  soutenue par paliers (> 0 %, ≥ 1 %, ≥ 5 %, ≥ 15 %, ≥ 40 %). Les zones sans aucune rue
+  éligible ne sont pas affichées. Les couleurs DOIVENT se mettre à jour à chaque nouvelle visite.
+- **FR-018**: Lorsque l'utilisateur touche une zone de la vue par quartier, le système DOIT
+  afficher son nom, son pourcentage parcouru (arrondi au dixième inférieur) et la longueur totale
+  de ses rues éligibles.
 
 ### Key Entities
 
@@ -215,5 +261,7 @@ toutes les rues sont neutres, y compris après redémarrage de l'application.
   (grands axes de type autoroutier) sont traitées comme des autoroutes et exclues.
 - L'état « partiellement parcourue » est représenté par une couleur distincte appliquée à toute la
   rue ; l'affichage de la portion exacte parcourue n'est pas requis en v1.
-- Hors périmètre v1 : suivi en arrière-plan, statistiques, badges, comptes, autres villes,
-  export/import de l'historique.
+- Hors périmètre v1 : suivi en arrière-plan, statistiques (hormis la progression par quartier de
+  FR-017), badges, comptes, autres villes, export/import de l'historique, carte 3D.
+- Les zones de quartier sont dessinées selon les limites officielles, qui peuvent déborder sur
+  l'eau ou d'autres îles ; leur pourcentage ne porte que sur les rues de l'île de Montréal.
