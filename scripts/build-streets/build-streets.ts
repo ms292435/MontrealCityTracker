@@ -12,7 +12,7 @@ import { cellOf, GRID } from '../../src/domain/grid.ts';
 import { fr } from '../../src/strings/fr.ts';
 import { assembleRings } from './lib/assembleRings.ts';
 import { ACCEPTED_HIGHWAYS, displayName, isEligible, type Tags } from './lib/eligibility.ts';
-import { findContaining, pointInPolygon, type NamedPolygon, type Polygon } from './lib/pointInPolygon.ts';
+import { findContaining, pointInPolygon, type NamedPolygon, type Polygon } from '../../src/domain/polygon.ts';
 import { polylineLength, resample } from './lib/resample.ts';
 import { buildSegments, type OsmWay } from './lib/segmentation.ts';
 import { simplify } from './lib/simplify.ts';

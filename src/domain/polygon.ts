@@ -1,4 +1,4 @@
-import type { LatLon } from '../../../src/domain/geo.ts';
+import type { LatLon } from './geo';
 
 // Multipolygone simplifié : dans un anneau extérieur et hors de tout trou.
 export type Polygon = { outer: LatLon[][]; inner: LatLon[][] };

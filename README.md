@@ -12,8 +12,10 @@ transforme l'exploration de la ville en une carte qui se remplit au fil de vos m
   « partiellement parcourue », puis « complétée » quand vous en avez couvert au moins 90 % ;
 - votre progression est conservée d'une sortie à l'autre ;
 - toucher une rue affiche son nom, son pourcentage parcouru, son état et sa longueur ;
-- en dézoomant, les arrondissements et villes liées se colorent selon la part de leurs rues
-  déjà parcourue, pour voir d'un coup d'œil les secteurs connus et ceux à découvrir.
+- toutes les rues restent visibles de la rue jusqu'à l'île entière (le dézoom s'arrête là) ;
+  en dézoomant, les arrondissements et villes liées se teintent selon la part de leurs rues
+  déjà parcourue, pour voir d'un coup d'œil les secteurs connus et ceux à découvrir ;
+- une échelle en bas à droite indique les distances.
 
 L'idée est simple : donner envie de sortir des trajets habituels et de voir, rue après rue, la
 part de la ville que l'on connaît vraiment.
@@ -29,7 +31,8 @@ complété quand 90 % de ses points le sont. Les autoroutes, tunnels et voies pr
 - Aucun compte, aucun serveur, aucune télémétrie.
 - Votre position n'est jamais enregistrée : seuls les numéros des points de rue visités sont
   conservés, dans une base SQLite sur votre téléphone.
-- La carte n'utilise aucun fond de carte téléchargé : les rues sont embarquées dans l'app.
+- La carte est entièrement dessinée par l'app (Skia) à partir des rues embarquées : aucun
+  service cartographique (Apple, Google…) ne sait quelle zone vous regardez.
 - Le suivi s'arrête dès que l'app quitte le premier plan.
 - « Effacer l'historique » supprime définitivement toute la progression.
 
@@ -65,16 +68,21 @@ Quelques enseignements de l'expérience, visibles dans l'historique git :
 - le premier essai sur iPhone a fait émerger un besoin absent de la spec (carte dézoomée vide) :
   il a été traité comme une nouvelle clarification et un nouveau récit utilisateur (US4) avant
   d'écrire le code, et la demande de carte 3D a été écartée au nom du principe de vie privée ;
+- le plan avait prévu un test décisif (Apple Maps n'envoie-t-il vraiment rien ?) et une solution
+  de repli : quand le deuxième essai a montré des noms Apple hors de l'île, la bascule vers un
+  rendu maison était déjà documentée, et seule la couche carte a été réécrite — la logique
+  métier, la base et ses tests sont restés intacts ;
 - l'implémentation a tout de même révélé des écarts que les documents n'avaient pas anticipés
   (option GPS inexistante, serveur Overpass surchargé), reportés dans les documents.
 
 ## État du projet
 
-- ✅ Code complet de la v1, 114 tests unitaires, TypeScript strict, bundle iOS compilé
+- ✅ Code complet de la v1, 132 tests unitaires, TypeScript strict, bundle iOS compilé
 - ✅ Données des rues générées : 53 757 tronçons, 377 200 points (23 Mo), 34 zones de quartier
-- ✅ Premier lancement sur iPhone réussi (via le partage de connexion de l'iPhone)
-- ⏳ Validation sur iPhone à terminer (tâches T011, T046, T049, T053, T058–T060, T070), en
-  commençant par le test réseau d'Apple Maps (T011), qui conditionne le principe de vie privée
+- ✅ Essais sur iPhone (via le partage de connexion de l'iPhone) ; test Apple Maps en échec,
+  d'où le passage au rendu maison
+- ⏳ Validation sur iPhone du rendu maison et des scénarios restants (T046, T049, T053,
+  T058–T060, T070, T085)
 
 > Sur un réseau d'université ou d'entreprise, l'iPhone ne peut souvent pas joindre
 > l'ordinateur : utilisez le partage de connexion de l'iPhone (sans VPN) ou
@@ -108,10 +116,10 @@ Scénarios de validation manuelle sur iPhone :
 
 ```text
 App.tsx                  point d'entrée (base SQLite + écran carte)
-src/domain/              logique métier pure et testée (visites, progression, grille, zoom)
+src/domain/              logique métier pure et testée (visites, progression, grille, caméra)
 src/data/                requêtes SQLite
 src/location/            localisation au premier plan
-src/ui/                  écran, carte, fiche, boutons
+src/ui/                  écran, carte dessinée avec Skia, fiches, boutons
 src/strings/fr.ts        tous les textes de l'interface
 scripts/build-streets/   script de génération des données de rues
 tests/unit/              tests unitaires

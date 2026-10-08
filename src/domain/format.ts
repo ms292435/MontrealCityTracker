@@ -1,3 +1,9 @@
+// Distances de l'échelle, toujours « rondes » (scaleBar).
+export function formatScale(meters: number): string {
+  'worklet';
+  return meters < 1000 ? `${meters} m` : `${meters / 1000} km`;
+}
+
 export function formatPercent(percent: number): string {
   return `${percent.toFixed(1).replace('.', ',')} %`;
 }

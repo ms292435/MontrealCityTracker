@@ -1,9 +1,8 @@
 // Requêtes SQL du contrat specs/001-street-exploration-map/contracts/streets-db.md.
 // Aucune logique métier ici : seulement de l'accès aux données.
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { fromE6, toE6, type LatLon } from '../domain/geo';
+import { fromE6 } from '../domain/geo';
 import type { CandidatePoint } from '../domain/visits';
-import type { Bounds, Region } from '../domain/viewport';
 
 export const SCHEMA_VERSION = '1';
 
@@ -13,6 +12,15 @@ export type SegmentRow = {
   quartier: string;
   lengthM: number;
   pointCount: number;
+};
+
+// Toute la géométrie des rues, en tableaux typés (research.md R16) : les points du tronçon `id`
+// occupent les indices offsets[id] à offsets[id + 1] - 1 de lat et lon.
+export type Geometry = {
+  segmentCount: number;
+  offsets: Int32Array;
+  lat: Float64Array;
+  lon: Float64Array;
 };
 
 const placeholders = (n: number) => new Array(n).fill('?').join(',');
@@ -32,6 +40,46 @@ export async function initDatabase(db: SQLiteDatabase): Promise<void> {
   }
 }
 
+export async function loadGeometry(db: SQLiteDatabase): Promise<Geometry> {
+  const counts = await db.getFirstAsync<{ segments: number; points: number }>(
+    'SELECT (SELECT MAX(id) FROM segment) AS segments, (SELECT COUNT(*) FROM point) AS points',
+  );
+  const segmentCount = counts?.segments ?? 0;
+  const pointCount = counts?.points ?? 0;
+  const offsets = new Int32Array(segmentCount + 2);
+  const lat = new Float64Array(pointCount);
+  const lon = new Float64Array(pointCount);
+
+  // Résultat « brut » (tableaux de valeurs) : bien plus léger que des objets pour ~377 k lignes.
+  const statement = await db.prepareAsync('SELECT segment_id, lat, lon FROM point ORDER BY segment_id, seq');
+  try {
+    const result = await statement.executeForRawResultAsync<{ segment_id: number; lat: number; lon: number }>();
+    const rows = await result.getAllAsync();
+    let previous = 0;
+    rows.forEach(([segmentId, latE6, lonE6], i) => {
+      while (previous < segmentId) offsets[++previous] = i;
+      lat[i] = fromE6(latE6);
+      lon[i] = fromE6(lonE6);
+    });
+    while (previous <= segmentCount) offsets[++previous] = rows.length;
+  } finally {
+    await statement.finalizeAsync();
+  }
+  return { segmentCount, offsets, lat, lon };
+}
+
+export async function getSegment(db: SQLiteDatabase, id: number): Promise<SegmentRow | null> {
+  const row = await db.getFirstAsync<{
+    id: number;
+    name: string;
+    quartier: string;
+    length_m: number;
+    point_count: number;
+  }>('SELECT id, name, quartier, length_m, point_count FROM segment WHERE id = ?', id);
+  if (!row) return null;
+  return { id: row.id, name: row.name, quartier: row.quartier, lengthM: row.length_m, pointCount: row.point_count };
+}
+
 export async function getCandidatePoints(db: SQLiteDatabase, cells: number[]): Promise<CandidatePoint[]> {
   const rows = await db.getAllAsync<{ id: number; segment_id: number; lat: number; lon: number }>(
     `SELECT id, segment_id, lat, lon FROM point WHERE cell IN (${placeholders(cells.length)})`,
@@ -40,83 +88,13 @@ export async function getCandidatePoints(db: SQLiteDatabase, cells: number[]): P
   return rows.map((r) => ({ id: r.id, segmentId: r.segment_id, lat: fromE6(r.lat), lon: fromE6(r.lon) }));
 }
 
-// Tronçons dont la boîte englobante coupe `bounds`, les plus proches du centre de la région
-// d'abord : le tri est fait par SQLite avant la limite (research.md R10).
-export async function getVisibleSegments(
-  db: SQLiteDatabase,
-  bounds: Bounds,
-  center: Region,
-  limit: number,
-): Promise<SegmentRow[]> {
-  const lonWeight = Math.cos((center.latitude * Math.PI) / 180) ** 2;
-  const rows = await db.getAllAsync<{
-    id: number;
-    name: string;
-    quartier: string;
-    length_m: number;
-    point_count: number;
-  }>(
-    `SELECT id, name, quartier, length_m, point_count FROM segment
-     WHERE min_lat <= ? AND max_lat >= ? AND min_lon <= ? AND max_lon >= ?
-     ORDER BY ((min_lat + max_lat) / 2.0 - ?) * ((min_lat + max_lat) / 2.0 - ?)
-            + ? * ((min_lon + max_lon) / 2.0 - ?) * ((min_lon + max_lon) / 2.0 - ?)
-     LIMIT ?`,
-    [
-      toE6(bounds.north),
-      toE6(bounds.south),
-      toE6(bounds.east),
-      toE6(bounds.west),
-      toE6(center.latitude),
-      toE6(center.latitude),
-      lonWeight,
-      toE6(center.longitude),
-      toE6(center.longitude),
-      limit,
-    ],
-  );
-  return rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    quartier: r.quartier,
-    lengthM: r.length_m,
-    pointCount: r.point_count,
-  }));
-}
-
-export async function getSegmentGeometries(
-  db: SQLiteDatabase,
-  segmentIds: number[],
-): Promise<Map<number, LatLon[]>> {
-  const geometries = new Map<number, LatLon[]>();
-  if (segmentIds.length === 0) return geometries;
-  const rows = await db.getAllAsync<{ segment_id: number; lat: number; lon: number }>(
-    `SELECT segment_id, lat, lon FROM point WHERE segment_id IN (${placeholders(segmentIds.length)})
-     ORDER BY segment_id, seq`,
-    segmentIds,
-  );
-  for (const r of rows) {
-    const list = geometries.get(r.segment_id) ?? [];
-    list.push({ lat: fromE6(r.lat), lon: fromE6(r.lon) });
-    geometries.set(r.segment_id, list);
-  }
-  return geometries;
-}
-
-export async function getVisitedCounts(
-  db: SQLiteDatabase,
-  segmentIds: number[],
-): Promise<Map<number, number>> {
-  const counts = new Map<number, number>();
-  if (segmentIds.length === 0) return counts;
+export async function getAllVisitedCounts(db: SQLiteDatabase): Promise<Map<number, number>> {
   const rows = await db.getAllAsync<{ segment_id: number; visited: number }>(
     `SELECT p.segment_id, COUNT(*) AS visited
      FROM visited_point v JOIN point p ON p.id = v.point_id
-     WHERE p.segment_id IN (${placeholders(segmentIds.length)})
      GROUP BY p.segment_id`,
-    segmentIds,
   );
-  for (const r of rows) counts.set(r.segment_id, r.visited);
-  return counts;
+  return new Map(rows.map((r) => [r.segment_id, r.visited]));
 }
 
 export type QuartierTotals = { totalPoints: number; totalLengthM: number };

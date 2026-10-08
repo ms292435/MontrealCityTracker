@@ -2,7 +2,7 @@ import {
   findContaining,
   pointInPolygon,
   type Polygon,
-} from '../../../scripts/build-streets/lib/pointInPolygon';
+} from '../../../src/domain/polygon';
 
 const p = (lat: number, lon: number) => ({ lat, lon });
 const square = (lat0: number, lon0: number, size: number) => [

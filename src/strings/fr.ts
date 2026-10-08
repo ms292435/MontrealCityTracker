@@ -9,7 +9,6 @@ export const fr = {
     openSettings: 'Ouvrir les Réglages',
   },
   map: {
-    zoomIn: 'Zoomez pour voir les rues',
     loading: 'Chargement de votre progression…',
     attribution: '© contributeurs OpenStreetMap · Ville de Montréal (CC BY 4.0)',
   },

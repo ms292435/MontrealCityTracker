@@ -1,4 +1,12 @@
-import { formatLength, formatPercent } from '../../../src/domain/format';
+import { formatLength, formatPercent, formatScale } from '../../../src/domain/format';
+
+describe('formatScale', () => {
+  it('affiche des distances rondes, sans décimale', () => {
+    expect(formatScale(500)).toBe('500 m');
+    expect(formatScale(2000)).toBe('2 km');
+    expect(formatScale(10000)).toBe('10 km');
+  });
+});
 
 describe('formatPercent', () => {
   it('affiche une décimale avec une virgule', () => {
